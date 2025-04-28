@@ -1,15 +1,121 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  season      String
+  coachPitch  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  players     Player[]
+  games       Game[]
+  gameRules   GameRule[]
+
+  @@map("teams")
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  teamId      String
+  name        String
+  jerseyNumber String?
+  skillLevel  Int      @default(3) // 1-5 scale
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  positionPreferences PlayerPositionPreference[]
+  battingLineups LineupBatting[]
+  fieldingLineups LineupFielding[]
+
+  @@map("players")
+}
+
+model PlayerPositionPreference {
+  id             String   @id @default(cuid())
+  playerId       String
+  position       String
+  preferenceLevel Int      @default(3) // 1-5 scale
+  allowed        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  player         Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("player_position_preferences")
+}
+
+model Game {
+  id                String   @id @default(cuid())
+  teamId            String
+  opponentName      String
+  gameDate          DateTime
+  location          String?
+  opponentDifficulty Int      @default(3) // 1-5 scale
+  outfielderCount   Int      @default(4)
+  playerCount       Int
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  team              Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  battingLineups    LineupBatting[]
+  fieldingLineups   LineupFielding[]
+
+  @@map("games")
+}
+
+model LineupBatting {
+  id          String   @id @default(cuid())
+  gameId      String
+  playerId    String
+  battingOrder Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("lineup_batting")
+}
+
+model LineupFielding {
+  id          String   @id @default(cuid())
+  gameId      String
+  playerId    String
+  inning      Int
+  position    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("lineup_fielding")
+}
+
+model GameRule {
+  id                String   @id @default(cuid())
+  teamId            String
+  opponentDifficulty Int
+  ruleType          String
+  ruleValue         Json
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  team              Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@map("game_rules")
 }
