@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FaArrowUp, FaArrowDown, FaRandom, FaBars, FaSave } from 'react-icons/fa';
+import { FaArrowUp, FaArrowDown, FaRandom, FaSave } from 'react-icons/fa';
 import { GiBaseballGlove } from 'react-icons/gi';
+import axios from 'axios';
 
-// Mock positions data
+// Position data
 const positions = [
   { id: 'pitcher', name: 'Pitcher', abbreviation: 'P' },
   { id: 'catcher', name: 'Catcher', abbreviation: 'C' },
@@ -20,138 +21,174 @@ const positions = [
   { id: 'bench', name: 'Bench', abbreviation: 'Bench' },
 ];
 
-// Mock games data
-const mockGames = [
-  { id: '1', opponent: 'Red Sox', date: '2025-05-15', time: '10:00 AM', location: 'Field A', difficulty: 3 },
-  { id: '2', opponent: 'Yankees', date: '2025-05-22', time: '1:00 PM', location: 'Field B', difficulty: 5 },
-  { id: '3', opponent: 'Cubs', date: '2025-05-29', time: '3:30 PM', location: 'Field C', difficulty: 1 },
-];
-
-// Mock players data (active only)
-const mockPlayers = [
-  {
-    id: '1',
-    name: 'John Smith',
-    jerseyNumber: '12',
-    skillLevel: 4,
-    preferredPositions: ['pitcher', 'shortstop'],
-    avoidPositions: ['catcher'],
-  },
-  {
-    id: '2',
-    name: 'Mike Johnson',
-    jerseyNumber: '7',
-    skillLevel: 3,
-    preferredPositions: ['first_base', 'right_field'],
-    avoidPositions: [],
-  },
-  {
-    id: '3',
-    name: 'Sarah Williams',
-    jerseyNumber: '23',
-    skillLevel: 5,
-    preferredPositions: ['shortstop', 'second_base'],
-    avoidPositions: ['catcher'],
-  },
-  {
-    id: '4',
-    name: 'Tyler Brown',
-    jerseyNumber: '9',
-    skillLevel: 2,
-    preferredPositions: ['right_field', 'left_field'],
-    avoidPositions: ['pitcher', 'first_base'],
-  },
-  {
-    id: '5',
-    name: 'Emily Garcia',
-    jerseyNumber: '15',
-    skillLevel: 3,
-    preferredPositions: ['catcher', 'third_base'],
-    avoidPositions: ['shortstop'],
-  },
-  {
-    id: '6',
-    name: 'Jacob Miller',
-    jerseyNumber: '21',
-    skillLevel: 4,
-    preferredPositions: ['second_base', 'shortstop'],
-    avoidPositions: ['pitcher'],
-  },
-  {
-    id: '7',
-    name: 'Lucas Wilson',
-    jerseyNumber: '3',
-    skillLevel: 3,
-    preferredPositions: ['left_field', 'right_field'],
-    avoidPositions: ['catcher'],
-  },
-  {
-    id: '8',
-    name: 'Olivia Davis',
-    jerseyNumber: '17',
-    skillLevel: 2,
-    preferredPositions: ['right_field', 'left_center_field'],
-    avoidPositions: ['shortstop', 'pitcher'],
-  },
-  {
-    id: '9',
-    name: 'William Martin',
-    jerseyNumber: '5',
-    skillLevel: 4,
-    preferredPositions: ['pitcher', 'third_base'],
-    avoidPositions: ['left_field'],
-  },
-  {
-    id: '10',
-    name: 'Sophia Thompson',
-    jerseyNumber: '8',
-    skillLevel: 3,
-    preferredPositions: ['right_center_field', 'second_base'],
-    avoidPositions: ['first_base'],
-  },
-];
-
 export default function CreateLineupPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  const [selectedGame, setSelectedGame] = useState<string>('');
-  const [selectedPlayers, setSelectedPlayers] = useState<any[]>([]);
-  const [availablePlayers, setAvailablePlayers] = useState<any[]>([]);
-  const [battingOrder, setBattingOrder] = useState<any[]>([]);
-  const [fieldingAssignments, setFieldingAssignments] = useState<any[]>([]);
-  const [innings, setInnings] = useState<number>(6);
-  const [outfielderCount, setOutfielderCount] = useState<number>(4);
-  const [activeTab, setActiveTab] = useState<'batting' | 'fielding'>('batting');
-  const [currentInning, setCurrentInning] = useState<number>(1);
+  const [selectedGame, setSelectedGame] = useState('');
+  const [selectedPlayers, setSelectedPlayers] = useState([]);
+  const [availablePlayers, setAvailablePlayers] = useState([]);
+  const [battingOrder, setBattingOrder] = useState([]);
+  const [fieldingAssignments, setFieldingAssignments] = useState([]);
+  const [innings, setInnings] = useState(6);
+  const [outfielderCount, setOutfielderCount] = useState(4);
+  const [activeTab, setActiveTab] = useState('batting');
+  const [currentInning, setCurrentInning] = useState(1);
+  const [autoAssignRules, setAutoAssignRules] = useState({
+    rotateOutfield: true,
+    ensureInfieldTime: true,
+    respectPreferences: true,
+    balancePositions: true,
+    opponentDifficulty: 3,
+  });
+  
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [teams, setTeams] = useState([]);
+  const [teamId, setTeamId] = useState('');
   
   // Initialize from URL parameters if available
   useEffect(() => {
+    fetchTeams();
+    
     const gameId = searchParams.get('gameId');
     if (gameId) {
       setSelectedGame(gameId);
     }
-    
-    // Default to all players being available
-    setAvailablePlayers(mockPlayers);
   }, [searchParams]);
+  
+  // Fetch teams from API
+  const fetchTeams = async () => {
+    try {
+      const response = await axios.get('/api/teams');
+      setTeams(response.data);
+      
+      // Set the first team as default
+      if (response.data.length > 0) {
+        setTeamId(response.data[0].id);
+      }
+    } catch (err) {
+      console.error('Error fetching teams:', err);
+      setError('Failed to load teams. Please try again.');
+    }
+  };
+  
+  // Fetch games when selected team changes
+  useEffect(() => {
+    if (teamId) {
+      fetchGames();
+    }
+  }, [teamId]);
+  
+  // Function to fetch games from API
+  const fetchGames = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`/api/games?teamId=${teamId}`);
+      
+      // Filter to games without lineups
+      const filteredGames = response.data.filter(game => !game.hasLineup);
+      setGames(filteredGames);
+      
+      // If a game was selected from URL param, validate it exists
+      if (selectedGame) {
+        const gameExists = response.data.some(g => g.id === selectedGame);
+        if (!gameExists) {
+          setSelectedGame('');
+        } else {
+          // Get game difficulty
+          const game = response.data.find(g => g.id === selectedGame);
+          if (game) {
+            setInnings(game.innings || 6);
+            setOutfielderCount(game.outfielderCount || 4);
+            setAutoAssignRules(prev => ({
+              ...prev,
+              opponentDifficulty: game.opponentDifficulty || 3
+            }));
+          }
+        }
+      }
+      
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching games:', err);
+      setError('Failed to load games. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Fetch players when team changes
+  useEffect(() => {
+    if (teamId) {
+      fetchPlayers();
+    }
+  }, [teamId]);
+  
+  // Function to fetch players from API
+  const fetchPlayers = async () => {
+    try {
+      const response = await axios.get(`/api/players?teamId=${teamId}`);
+      
+      // Filter to active players only
+      const activePlayers = response.data.filter(player => player.active);
+      setAvailablePlayers(activePlayers);
+    } catch (err) {
+      console.error('Error fetching players:', err);
+      setError('Failed to load players. Please try again.');
+    }
+  };
+  
+  // Function to fetch existing lineup if available
+  const fetchLineup = async (gameId) => {
+    try {
+      const response = await axios.get(`/api/lineups/${gameId}`);
+      
+      // Set batting order
+      if (response.data.battingOrder && response.data.battingOrder.length > 0) {
+        setBattingOrder(response.data.battingOrder);
+        setSelectedPlayers(response.data.battingOrder);
+      }
+      
+      // Set fielding assignments
+      if (response.data.fieldingAssignments && response.data.fieldingAssignments.length > 0) {
+        setFieldingAssignments(response.data.fieldingAssignments);
+      }
+    } catch (err) {
+      console.error('Error fetching lineup:', err);
+      // If no lineup exists, that's fine, we'll create a new one
+      // Don't set an error in this case
+    }
+  };
 
   // When a game is selected, reset the lineup
   useEffect(() => {
     if (selectedGame) {
-      // Reset everything
+      // Get game details
+      const game = games.find(g => g.id === selectedGame);
+      if (game) {
+        setInnings(game.innings || 6);
+        setOutfielderCount(game.outfielderCount || 4);
+        setAutoAssignRules(prev => ({
+          ...prev,
+          opponentDifficulty: game.opponentDifficulty || 3
+        }));
+        
+        // Check for existing lineup
+        fetchLineup(selectedGame);
+      }
+      
+      // Reset to defaults if no existing lineup
       setSelectedPlayers([]);
       setBattingOrder([]);
       setFieldingAssignments([]);
-      
-      // Reset available players
-      setAvailablePlayers(mockPlayers);
     }
-  }, [selectedGame]);
+  }, [selectedGame, games]);
 
   // When players are selected, initialize batting order with them
   useEffect(() => {
-    if (selectedPlayers.length > 0) {
+    if (selectedPlayers.length > 0 && battingOrder.length === 0) {
       setBattingOrder([...selectedPlayers]);
       
       // Initialize fielding assignments
@@ -184,7 +221,7 @@ export default function CreateLineupPage() {
   }, [selectedPlayers, innings, outfielderCount]);
 
   // Function to get available positions based on outfielder count
-  const getAvailablePositionsForInning = (outfielderCount: number) => {
+  const getAvailablePositionsForInning = (outfielderCount) => {
     const infield = positions.filter(p => 
       !p.id.includes('field') && p.id !== 'bench'
     );
@@ -204,7 +241,7 @@ export default function CreateLineupPage() {
   };
 
   // Function to handle player selection
-  const togglePlayerSelection = (player: any) => {
+  const togglePlayerSelection = (player) => {
     if (selectedPlayers.some(p => p.id === player.id)) {
       // Remove player
       setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
@@ -215,7 +252,7 @@ export default function CreateLineupPage() {
   };
 
   // Function to move a player up in the batting order
-  const moveBatterUp = (index: number) => {
+  const moveBatterUp = (index) => {
     if (index > 0) {
       const newOrder = [...battingOrder];
       [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
@@ -224,7 +261,7 @@ export default function CreateLineupPage() {
   };
 
   // Function to move a player down in the batting order
-  const moveBatterDown = (index: number) => {
+  const moveBatterDown = (index) => {
     if (index < battingOrder.length - 1) {
       const newOrder = [...battingOrder];
       [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
@@ -243,44 +280,237 @@ export default function CreateLineupPage() {
   };
 
   // Function to update a player's fielding position
-  const updateFieldingPosition = (inning: number, playerIndex: number, position: string) => {
+  const updateFieldingPosition = (inning, playerIndex, position) => {
     const newAssignments = [...fieldingAssignments];
+    
+    // Make sure inning exists
+    if (!newAssignments[inning - 1]) {
+      newAssignments[inning - 1] = [];
+    }
+    
+    // Make sure player assignment exists
+    if (!newAssignments[inning - 1][playerIndex]) {
+      newAssignments[inning - 1][playerIndex] = {
+        playerId: selectedPlayers[playerIndex].id,
+        position: 'bench'
+      };
+    }
+    
     newAssignments[inning - 1][playerIndex].position = position;
     setFieldingAssignments(newAssignments);
   };
 
-  // Function to handle form submission
-  const handleSubmit = () => {
-    // Here you would save the lineup to your backend
-    console.log({
-      gameId: selectedGame,
-      battingOrder,
-      fieldingAssignments
-    });
+  // Function to automatically assign positions based on rules
+  const autoAssignPositions = () => {
+    // This is where we'll implement the automated lineup logic
+    // For now, just a simple implementation
     
-    // Redirect to the lineups page
-    router.push('/lineups');
+    const newFieldingAssignments = [];
+    
+    for (let inning = 1; inning <= innings; inning++) {
+      const inningAssignments = [];
+      const availablePositions = [...getAvailablePositionsForInning(outfielderCount)];
+      
+      // Sort players by skill level (higher first) if playing against a difficult opponent
+      const sortedPlayers = [...selectedPlayers].sort((a, b) => {
+        // If high difficulty, prioritize skill
+        if (autoAssignRules.opponentDifficulty >= 4) {
+          return b.skillLevel - a.skillLevel;
+        }
+        // If low difficulty, mix it up more
+        else if (autoAssignRules.opponentDifficulty <= 2) {
+          return a.skillLevel - b.skillLevel;
+        }
+        // Otherwise, keep original order with slight skill preference
+        return 0;
+      });
+      
+      // Create a mapping of positions to players for this inning
+      const positionMap = {};
+      
+      // First pass: try to assign preferred positions if they're not already taken
+      if (autoAssignRules.respectPreferences) {
+        sortedPlayers.forEach(player => {
+          // Find preferred positions from player's preferences
+          const preferredPositions = player.positionPreferences
+            ?.filter(pref => pref.preferenceLevel >= 4 && pref.allowed)
+            .map(pref => pref.position) || [];
+          
+          if (preferredPositions.length > 0) {
+            // Find preferred positions that are still available
+            const availablePreferred = preferredPositions.filter(
+              pos => availablePositions.some(p => p.id === pos)
+            );
+            
+            if (availablePreferred.length > 0) {
+              // Pick a random preferred position
+              const chosenPos = availablePreferred[Math.floor(Math.random() * availablePreferred.length)];
+              positionMap[chosenPos] = player.id;
+              
+              // Remove this position from available positions
+              const index = availablePositions.findIndex(p => p.id === chosenPos);
+              if (index >= 0) {
+                availablePositions.splice(index, 1);
+              }
+            }
+          }
+        });
+      }
+      
+      // Second pass: assign remaining positions
+      sortedPlayers.forEach(player => {
+        // Skip players already assigned
+        if (Object.values(positionMap).includes(player.id)) {
+          return;
+        }
+        
+        // Find positions the player should avoid
+        const avoidPositions = player.positionPreferences
+          ?.filter(pref => pref.preferenceLevel <= 2 || !pref.allowed)
+          .map(pref => pref.position) || [];
+        
+        // Filter out avoided positions if possible
+        let possiblePositions = availablePositions.filter(
+          pos => !avoidPositions.includes(pos.id)
+        );
+        
+        // If no positions left, use any available position
+        if (possiblePositions.length === 0 && availablePositions.length > 0) {
+          possiblePositions = availablePositions;
+        }
+        
+        if (possiblePositions.length > 0) {
+          // Choose a random position from possible positions
+          const randomIndex = Math.floor(Math.random() * possiblePositions.length);
+          const chosenPosition = possiblePositions[randomIndex];
+          
+          positionMap[chosenPosition.id] = player.id;
+          
+          // Remove from available positions
+          const index = availablePositions.findIndex(p => p.id === chosenPosition.id);
+          if (index >= 0) {
+            availablePositions.splice(index, 1);
+          }
+        } else {
+          // If no positions available, assign to bench
+          positionMap['bench'] = player.id;
+        }
+      });
+      
+      // Create the inning assignments
+      selectedPlayers.forEach(player => {
+        const assignedPosition = Object.entries(positionMap)
+          .find(([pos, id]) => id === player.id)?.[0] || 'bench';
+        
+        inningAssignments.push({
+          playerId: player.id,
+          position: assignedPosition
+        });
+      });
+      
+      newFieldingAssignments.push(inningAssignments);
+    }
+    
+    setFieldingAssignments(newFieldingAssignments);
   };
+
+  // Function to handle form submission
+  const handleSubmit = async () => {
+    if (!selectedGame || battingOrder.length === 0 || fieldingAssignments.length === 0) {
+      setError('Please select a game and add players to the lineup.');
+      return;
+    }
+    
+    try {
+      await axios.post('/api/lineups', {
+        gameId: selectedGame,
+        battingOrder,
+        fieldingAssignments
+      });
+      
+      // Redirect to the lineups page or to the game details
+      router.push('/games');
+    } catch (err) {
+      console.error('Error saving lineup:', err);
+      setError('Failed to save lineup. Please try again.');
+    }
+  };
+
+  // If loading, show a spinner
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-6 ml-0 md:ml-20">
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-thunder-primary mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If no teams, show message
+  if (teams.length === 0) {
+    return (
+      <div className="container mx-auto px-4 py-6 ml-0 md:ml-20">
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <p className="text-gray-600 mb-4">You need to create a team before you can create lineups.</p>
+          <Link
+            href="/teams"
+            className="px-4 py-2 bg-thunder-primary text-white rounded-lg hover:bg-thunder-primary/90"
+          >
+            Create a Team
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-6 ml-0 md:ml-20">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-thunder-dark mb-4">Create Lineup</h1>
         
+        {/* Error message */}
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">
+            <span className="block">{error}</span>
+          </div>
+        )}
+        
         {/* Game selection */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-lg font-semibold mb-3">Select Game</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
+              <div className="mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Team
+                </label>
+                <select
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-thunder-primary"
+                  value={teamId}
+                  onChange={(e) => setTeamId(e.target.value)}
+                >
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Game
+              </label>
               <select
                 className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-thunder-primary"
                 value={selectedGame}
                 onChange={(e) => setSelectedGame(e.target.value)}
               >
                 <option value="">Select a game</option>
-                {mockGames.map((game) => (
+                {games.map((game) => (
                   <option key={game.id} value={game.id}>
-                    {new Date(game.date).toLocaleDateString()} vs {game.opponent} ({game.time})
+                    {new Date(game.gameDate).toLocaleDateString()} vs {game.opponentName}
                   </option>
                 ))}
               </select>
@@ -442,6 +672,15 @@ export default function CreateLineupPage() {
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-semibold">Fielding Positions</h2>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={autoAssignPositions}
+                      className="flex items-center px-3 py-1 bg-thunder-secondary text-thunder-dark rounded-lg hover:bg-thunder-secondary/90"
+                    >
+                      <FaRandom className="mr-1" />
+                      Auto-Assign
+                    </button>
+                  </div>
                 </div>
                 
                 {/* Inning selector */}
@@ -466,7 +705,7 @@ export default function CreateLineupPage() {
                   <div className="space-y-2">
                     {selectedPlayers.map((player, playerIndex) => {
                       const assignment = fieldingAssignments[currentInning - 1].find(
-                        (a: any) => a.playerId === player.id
+                        (a) => a.playerId === player.id
                       );
                       const position = assignment ? assignment.position : 'bench';
                       
@@ -499,24 +738,16 @@ export default function CreateLineupPage() {
                     })}
                   </div>
                 )}
-              </div>
-            )}
-          </div>
-        )}
-        
-        {/* Save button */}
-        {selectedPlayers.length > 0 && (
-          <div className="flex justify-end">
-            <button
-              onClick={handleSubmit}
-              className="px-6 py-3 bg-thunder-primary text-white rounded-lg hover:bg-thunder-primary/90 flex items-center"
-            >
-              <FaSave className="mr-2" />
-              Save Lineup
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+                
+                {/* Auto-assign rules panel */}
+                <div className="mt-6 p-4 border border-gray-200 rounded-lg">
+                  <h3 className="font-medium mb-2">Auto-Assign Rules</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="rotateOutfield"
+                        checked={autoAssignRules.rotateOutfield}
+                        onChange={() => setAutoAssignRules({
+                          ...autoAssignRules,
+                          rotateOutfield: !autoAssignRules.rotateOutfield
