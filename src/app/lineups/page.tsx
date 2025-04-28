@@ -1,735 +1,140 @@
-// src/app/lineups/create/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
-import { FaArrowUp, FaArrowDown, FaRandom, FaBars, FaSave } from 'react-icons/fa';
-import { GiBaseballGlove } from 'react-icons/gi';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { FaPlus, FaEye, FaCalendarAlt } from 'react-icons/fa';
+import axios from 'axios';
 
-// Mock positions data
-const positions = [
-  { id: 'pitcher', name: 'Pitcher', abbreviation: 'P' },
-  { id: 'catcher', name: 'Catcher', abbreviation: 'C' },
-  { id: 'first_base', name: '1st Base', abbreviation: '1B' },
-  { id: 'second_base', name: '2nd Base', abbreviation: '2B' },
-  { id: 'third_base', name: '3rd Base', abbreviation: '3B' },
-  { id: 'shortstop', name: 'Shortstop', abbreviation: 'SS' },
-  { id: 'left_field', name: 'Left Field', abbreviation: 'LF' },
-  { id: 'left_center_field', name: 'Left-Center Field', abbreviation: 'LCF' },
-  { id: 'right_center_field', name: 'Right-Center Field', abbreviation: 'RCF' },
-  { id: 'right_field', name: 'Right Field', abbreviation: 'RF' },
-  { id: 'bench', name: 'Bench', abbreviation: 'Bench' },
-];
-
-// Mock games data
-const mockGames = [
-  { id: '1', opponent: 'Red Sox', date: '2025-05-15', time: '10:00 AM', location: 'Field A', difficulty: 3 },
-  { id: '2', opponent: 'Yankees', date: '2025-05-22', time: '1:00 PM', location: 'Field B', difficulty: 5 },
-  { id: '3', opponent: 'Cubs', date: '2025-05-29', time: '3:30 PM', location: 'Field C', difficulty: 1 },
-];
-
-// Mock players data (active only)
-const mockPlayers = [
-  {
-    id: '1',
-    name: 'John Smith',
-    jerseyNumber: '12',
-    skillLevel: 4,
-    preferredPositions: ['pitcher', 'shortstop'],
-    avoidPositions: ['catcher'],
-  },
-  {
-    id: '2',
-    name: 'Mike Johnson',
-    jerseyNumber: '7',
-    skillLevel: 3,
-    preferredPositions: ['first_base', 'right_field'],
-    avoidPositions: [],
-  },
-  {
-    id: '3',
-    name: 'Sarah Williams',
-    jerseyNumber: '23',
-    skillLevel: 5,
-    preferredPositions: ['shortstop', 'second_base'],
-    avoidPositions: ['catcher'],
-  },
-  {
-    id: '4',
-    name: 'Tyler Brown',
-    jerseyNumber: '9',
-    skillLevel: 2,
-    preferredPositions: ['right_field', 'left_field'],
-    avoidPositions: ['pitcher', 'first_base'],
-  },
-  {
-    id: '5',
-    name: 'Emily Garcia',
-    jerseyNumber: '15',
-    skillLevel: 3,
-    preferredPositions: ['catcher', 'third_base'],
-    avoidPositions: ['shortstop'],
-  },
-  {
-    id: '6',
-    name: 'Jacob Miller',
-    jerseyNumber: '21',
-    skillLevel: 4,
-    preferredPositions: ['second_base', 'shortstop'],
-    avoidPositions: ['pitcher'],
-  },
-  {
-    id: '7',
-    name: 'Lucas Wilson',
-    jerseyNumber: '3',
-    skillLevel: 3,
-    preferredPositions: ['left_field', 'right_field'],
-    avoidPositions: ['catcher'],
-  },
-  {
-    id: '8',
-    name: 'Olivia Davis',
-    jerseyNumber: '17',
-    skillLevel: 2,
-    preferredPositions: ['right_field', 'left_center_field'],
-    avoidPositions: ['shortstop', 'pitcher'],
-  },
-  {
-    id: '9',
-    name: 'William Martin',
-    jerseyNumber: '5',
-    skillLevel: 4,
-    preferredPositions: ['pitcher', 'third_base'],
-    avoidPositions: ['left_field'],
-  },
-  {
-    id: '10',
-    name: 'Sophia Thompson',
-    jerseyNumber: '8',
-    skillLevel: 3,
-    preferredPositions: ['right_center_field', 'second_base'],
-    avoidPositions: ['first_base'],
-  },
-];
-
-export default function CreateLineupPage() {
-  const router = useRouter();
-  const [selectedGame, setSelectedGame] = useState<string>('');
-  const [selectedPlayers, setSelectedPlayers] = useState<any[]>([]);
-  const [availablePlayers, setAvailablePlayers] = useState<any[]>([]);
-  const [battingOrder, setBattingOrder] = useState<any[]>([]);
-  const [fieldingAssignments, setFieldingAssignments] = useState<any[]>([]);
-  const [innings, setInnings] = useState<number>(6);
-  const [outfielderCount, setOutfielderCount] = useState<number>(4);
-  const [activeTab, setActiveTab] = useState<'batting' | 'fielding'>('batting');
-  const [currentInning, setCurrentInning] = useState<number>(1);
-  const [autoAssignRules, setAutoAssignRules] = useState({
-    rotateOutfield: true,
-    ensureInfieldTime: true,
-    respectPreferences: true,
-    balancePositions: true,
-    opponentDifficulty: 3,
-  });
+export default function LineupsPage() {
+  const [lineups, setLineups] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [teams, setTeams] = useState([]);
+  const [selectedTeam, setSelectedTeam] = useState('');
   
-  // Initialize the component
+  // Fetch teams on component mount
   useEffect(() => {
-    // Default to all players being available
-    setAvailablePlayers(mockPlayers);
+    fetchTeams();
   }, []);
-
-  // When a game is selected, reset the lineup
+  
+  // Fetch lineups when selected team changes
   useEffect(() => {
-    if (selectedGame) {
-      const game = mockGames.find(g => g.id === selectedGame);
-      if (game) {
-        setAutoAssignRules(prev => ({
-          ...prev,
-          opponentDifficulty: game.difficulty
-        }));
+    if (selectedTeam) {
+      fetchLineups();
+    }
+  }, [selectedTeam]);
+  
+  // Function to fetch teams from API
+  const fetchTeams = async () => {
+    try {
+      const response = await axios.get('/api/teams');
+      setTeams(response.data);
+      
+      // Set the first team as default if available
+      if (response.data.length > 0) {
+        setSelectedTeam(response.data[0].id);
       }
-      
-      // Reset everything
-      setSelectedPlayers([]);
-      setBattingOrder([]);
-      setFieldingAssignments([]);
-      
-      // Reset available players
-      setAvailablePlayers(mockPlayers);
-    }
-  }, [selectedGame]);
-
-  // When players are selected, initialize batting order with them
-  useEffect(() => {
-    if (selectedPlayers.length > 0) {
-      setBattingOrder([...selectedPlayers]);
-      
-      // Initialize fielding assignments
-      const newFieldingAssignments = [];
-      for (let inning = 1; inning <= innings; inning++) {
-        const inningAssignments = [];
-        
-        // Assign players to positions (very basic for now)
-        const availablePositions = getAvailablePositionsForInning(outfielderCount);
-        
-        selectedPlayers.forEach((player, index) => {
-          if (index < availablePositions.length) {
-            inningAssignments.push({
-              playerId: player.id,
-              position: availablePositions[index].id
-            });
-          } else {
-            inningAssignments.push({
-              playerId: player.id,
-              position: 'bench'
-            });
-          }
-        });
-        
-        newFieldingAssignments.push(inningAssignments);
-      }
-      
-      setFieldingAssignments(newFieldingAssignments);
-    }
-  }, [selectedPlayers, innings, outfielderCount]);
-
-  // Function to get available positions based on outfielder count
-  const getAvailablePositionsForInning = (outfielderCount: number) => {
-    const infield = positions.filter(p => 
-      !p.id.includes('field') && p.id !== 'bench'
-    );
-    
-    let outfield;
-    if (outfielderCount === 3) {
-      outfield = positions.filter(p => 
-        p.id === 'left_field' || p.id === 'right_field' || p.id === 'center_field'
-      );
-    } else {
-      outfield = positions.filter(p => 
-        p.id.includes('field') && p.id !== 'bench'
-      );
-    }
-    
-    return [...infield, ...outfield];
-  };
-
-  // Function to handle player selection
-  const togglePlayerSelection = (player: any) => {
-    if (selectedPlayers.some(p => p.id === player.id)) {
-      // Remove player
-      setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
-    } else {
-      // Add player
-      setSelectedPlayers([...selectedPlayers, player]);
+    } catch (err) {
+      console.error('Error fetching teams:', err);
+      setError('Failed to load teams. Please try again.');
     }
   };
-
-  // Function to move a player up in the batting order
-  const moveBatterUp = (index: number) => {
-    if (index > 0) {
-      const newOrder = [...battingOrder];
-      [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
-      setBattingOrder(newOrder);
+  
+  // Function to fetch lineups from API
+  const fetchLineups = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`/api/lineups?teamId=${selectedTeam}`);
+      setLineups(response.data);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching lineups:', err);
+      setError('Failed to load lineups. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
-
-  // Function to move a player down in the batting order
-  const moveBatterDown = (index: number) => {
-    if (index < battingOrder.length - 1) {
-      const newOrder = [...battingOrder];
-      [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
-      setBattingOrder(newOrder);
-    }
-  };
-
-  // Function to randomly shuffle the batting order
-  const randomizeBattingOrder = () => {
-    const newOrder = [...battingOrder];
-    for (let i = newOrder.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [newOrder[i], newOrder[j]] = [newOrder[j], newOrder[i]];
-    }
-    setBattingOrder(newOrder);
-  };
-
-  // Function to update a player's fielding position
-  const updateFieldingPosition = (inning: number, playerIndex: number, position: string) => {
-    const newAssignments = [...fieldingAssignments];
-    newAssignments[inning - 1][playerIndex].position = position;
-    setFieldingAssignments(newAssignments);
-  };
-
-  // Function to automatically assign positions based on rules
-  const autoAssignPositions = () => {
-    // This is where you would implement your automated lineup logic
-    // For now, just a simple implementation
-    
-    const newFieldingAssignments = [];
-    
-    for (let inning = 1; inning <= innings; inning++) {
-      const inningAssignments = [];
-      const availablePositions = [...getAvailablePositionsForInning(outfielderCount)];
-      
-      // Sort players by skill level (higher first) if playing against a difficult opponent
-      const sortedPlayers = [...selectedPlayers].sort((a, b) => {
-        // If high difficulty, prioritize skill
-        if (autoAssignRules.opponentDifficulty >= 4) {
-          return b.skillLevel - a.skillLevel;
-        }
-        // If low difficulty, mix it up more
-        else if (autoAssignRules.opponentDifficulty <= 2) {
-          return a.skillLevel - b.skillLevel;
-        }
-        // Otherwise, keep original order with slight skill preference
-        return 0;
-      });
-      
-      // Create a mapping of positions to players for this inning
-      const positionMap: Record<string, string> = {};
-      
-      // First pass: try to assign preferred positions if they're not already taken
-      if (autoAssignRules.respectPreferences) {
-        sortedPlayers.forEach(player => {
-          if (player.preferredPositions.length > 0) {
-            // Find preferred positions that are still available
-            const availablePreferred = player.preferredPositions.filter(
-              pos => availablePositions.some(p => p.id === pos)
-            );
-            
-            if (availablePreferred.length > 0) {
-              // Pick a random preferred position
-              const chosenPos = availablePreferred[Math.floor(Math.random() * availablePreferred.length)];
-              positionMap[chosenPos] = player.id;
-              
-              // Remove this position from available positions
-              const index = availablePositions.findIndex(p => p.id === chosenPos);
-              if (index >= 0) {
-                availablePositions.splice(index, 1);
-              }
-            }
-          }
-        });
-      }
-      
-      // Second pass: assign remaining positions
-      sortedPlayers.forEach(player => {
-        // Skip players already assigned
-        if (Object.values(positionMap).includes(player.id)) {
-          return;
-        }
-        
-        // Find positions the player should avoid
-        const avoidPositions = player.avoidPositions || [];
-        
-        // Filter out avoided positions if possible
-        let possiblePositions = availablePositions.filter(
-          pos => !avoidPositions.includes(pos.id)
-        );
-        
-        // If no positions left, use any available position
-        if (possiblePositions.length === 0 && availablePositions.length > 0) {
-          possiblePositions = availablePositions;
-        }
-        
-        if (possiblePositions.length > 0) {
-          // Choose a random position from possible positions
-          const randomIndex = Math.floor(Math.random() * possiblePositions.length);
-          const chosenPosition = possiblePositions[randomIndex];
-          
-          positionMap[chosenPosition.id] = player.id;
-          
-          // Remove from available positions
-          const index = availablePositions.findIndex(p => p.id === chosenPosition.id);
-          if (index >= 0) {
-            availablePositions.splice(index, 1);
-          }
-        } else {
-          // If no positions available, assign to bench
-          positionMap['bench'] = player.id;
-        }
-      });
-      
-      // Create the inning assignments
-      selectedPlayers.forEach(player => {
-        const assignedPosition = Object.entries(positionMap)
-          .find(([pos, id]) => id === player.id)?.[0] || 'bench';
-        
-        inningAssignments.push({
-          playerId: player.id,
-          position: assignedPosition
-        });
-      });
-      
-      newFieldingAssignments.push(inningAssignments);
-    }
-    
-    setFieldingAssignments(newFieldingAssignments);
-  };
-
-  // Function to handle form submission
-  const handleSubmit = () => {
-    // Here you would save the lineup to your backend
-    console.log({
-      gameId: selectedGame,
-      battingOrder,
-      fieldingAssignments
-    });
-    
-    // Redirect to the lineups page
-    router.push('/lineups');
-  };
-
+  
   return (
     <div className="container mx-auto px-4 py-6 ml-0 md:ml-20">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-thunder-dark mb-4">Create Lineup</h1>
-        
-        {/* Game selection */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-3">Select Game</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-thunder-dark">Lineups</h1>
+          {teams.length > 0 && (
+            <div className="mt-2">
               <select
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-thunder-primary"
-                value={selectedGame}
-                onChange={(e) => setSelectedGame(e.target.value)}
+                className="border border-gray-300 rounded-lg p-1"
+                value={selectedTeam}
+                onChange={(e) => setSelectedTeam(e.target.value)}
               >
-                <option value="">Select a game</option>
-                {mockGames.map((game) => (
-                  <option key={game.id} value={game.id}>
-                    {new Date(game.date).toLocaleDateString()} vs {game.opponent} ({game.time})
+                {teams.map(team => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
                   </option>
                 ))}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Innings
-                </label>
-                <select
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-thunder-primary"
-                  value={innings}
-                  onChange={(e) => setInnings(parseInt(e.target.value))}
-                >
-                  <option value="5">5 Innings</option>
-                  <option value="6">6 Innings</option>
-                  <option value="7">7 Innings</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Outfielders
-                </label>
-                <select
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-thunder-primary"
-                  value={outfielderCount}
-                  onChange={(e) => setOutfielderCount(parseInt(e.target.value))}
-                >
-                  <option value="3">3 Outfielders</option>
-                  <option value="4">4 Outfielders</option>
-                </select>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
-        
-        {/* Player selection */}
-        {selectedGame && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-3">Select Players</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {availablePlayers.map((player) => (
-                <div
-                  key={player.id}
-                  onClick={() => togglePlayerSelection(player)}
-                  className={`p-3 border rounded-lg cursor-pointer flex items-center ${
-                    selectedPlayers.some(p => p.id === player.id)
-                      ? 'border-thunder-primary bg-thunder-primary/10'
-                      : 'border-gray-200 hover:bg-gray-50'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedPlayers.some(p => p.id === player.id)}
-                    onChange={() => {}}
-                    className="h-4 w-4 text-thunder-primary focus:ring-thunder-primary border-gray-300 rounded mr-3"
-                  />
-                  <div className="flex items-center">
-                    <span className="bg-thunder-primary text-white text-xs font-medium rounded-full w-5 h-5 flex items-center justify-center mr-2">
-                      {player.jerseyNumber}
-                    </span>
-                    <span className="font-medium">{player.name}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4">
-              <p className="text-sm text-gray-600">
-                {selectedPlayers.length} players selected
-              </p>
-            </div>
-          </div>
-        )}
-        
-        {/* Tabs for Batting and Fielding */}
-        {selectedPlayers.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-            <div className="flex border-b border-gray-200">
-              <button
-                className={`py-3 px-6 text-center font-medium text-sm focus:outline-none ${
-                  activeTab === 'batting'
-                    ? 'text-thunder-primary border-b-2 border-thunder-primary'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-                onClick={() => setActiveTab('batting')}
-              >
-                Batting Order
-              </button>
-              <button
-                className={`py-3 px-6 text-center font-medium text-sm focus:outline-none ${
-                  activeTab === 'fielding'
-                    ? 'text-thunder-primary border-b-2 border-thunder-primary'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-                onClick={() => setActiveTab('fielding')}
-              >
-                Fielding Positions
-              </button>
-            </div>
-            
-            {/* Batting Order Tab */}
-            {activeTab === 'batting' && (
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-semibold">Batting Order</h2>
-                  <button
-                    onClick={randomizeBattingOrder}
-                    className="flex items-center px-3 py-1 bg-thunder-secondary text-thunder-dark rounded-lg hover:bg-thunder-secondary/90"
-                  >
-                    <FaRandom className="mr-1" />
-                    Randomize
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {battingOrder.map((player, index) => (
-                    <div
-                      key={player.id}
-                      className="flex items-center p-3 bg-gray-50 rounded-lg"
-                    >
-                      <div className="w-8 text-center font-bold">{index + 1}</div>
-                      <div className="flex-1 flex items-center">
-                        <span className="bg-thunder-primary text-white text-xs font-medium rounded-full w-5 h-5 flex items-center justify-center mr-2">
-                          {player.jerseyNumber}
-                        </span>
-                        <span>{player.name}</span>
-                      </div>
-                      <div className="flex space-x-1">
-                        <button
-                          onClick={() => moveBatterUp(index)}
-                          disabled={index === 0}
-                          className={`p-1 rounded-lg ${
-                            index === 0
-                              ? 'text-gray-300 cursor-not-allowed'
-                              : 'text-thunder-primary hover:bg-thunder-primary/10'
-                          }`}
-                        >
-                          <FaArrowUp />
-                        </button>
-                        <button
-                          onClick={() => moveBatterDown(index)}
-                          disabled={index === battingOrder.length - 1}
-                          className={`p-1 rounded-lg ${
-                            index === battingOrder.length - 1
-                              ? 'text-gray-300 cursor-not-allowed'
-                              : 'text-thunder-primary hover:bg-thunder-primary/10'
-                          }`}
-                        >
-                          <FaArrowDown />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Fielding Positions Tab */}
-            {activeTab === 'fielding' && (
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-semibold">Fielding Positions</h2>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={autoAssignPositions}
-                      className="flex items-center px-3 py-1 bg-thunder-secondary text-thunder-dark rounded-lg hover:bg-thunder-secondary/90"
-                    >
-                      <FaRandom className="mr-1" />
-                      Auto-Assign
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Inning selector */}
-                <div className="mb-4 flex flex-wrap gap-1">
-                  {Array.from({ length: innings }, (_, i) => i + 1).map((inning) => (
-                    <button
-                      key={inning}
-                      onClick={() => setCurrentInning(inning)}
-                      className={`px-3 py-1 rounded-lg text-sm font-medium ${
-                        currentInning === inning
-                          ? 'bg-thunder-primary text-white'
-                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                      }`}
-                    >
-                      Inning {inning}
-                    </button>
-                  ))}
-                </div>
-                
-                {/* Position assignments */}
-                {fieldingAssignments.length > 0 && fieldingAssignments[currentInning - 1] && (
-                  <div className="space-y-2">
-                    {selectedPlayers.map((player, playerIndex) => {
-                      const assignment = fieldingAssignments[currentInning - 1].find(
-                        (a: any) => a.playerId === player.id
-                      );
-                      const position = assignment ? assignment.position : 'bench';
-                      
-                      return (
-                        <div
-                          key={player.id}
-                          className="flex items-center p-3 bg-gray-50 rounded-lg"
-                        >
-                          <div className="flex-1 flex items-center">
-                            <span className="bg-thunder-primary text-white text-xs font-medium rounded-full w-5 h-5 flex items-center justify-center mr-2">
-                              {player.jerseyNumber}
-                            </span>
-                            <span>{player.name}</span>
-                          </div>
-                          <div>
-                            <select
-                              value={position}
-                              onChange={(e) => updateFieldingPosition(currentInning, playerIndex, e.target.value)}
-                              className="p-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-thunder-primary text-sm"
-                            >
-                              {positions.map((pos) => (
-                                <option key={pos.id} value={pos.id}>
-                                  {pos.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                
-                {/* Auto-assign rules panel */}
-                <div className="mt-6 p-4 border border-gray-200 rounded-lg">
-                  <h3 className="font-medium mb-2">Auto-Assign Rules</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="rotateOutfield"
-                        checked={autoAssignRules.rotateOutfield}
-                        onChange={() => setAutoAssignRules({
-                          ...autoAssignRules,
-                          rotateOutfield: !autoAssignRules.rotateOutfield
-                        })}
-                        className="h-4 w-4 text-thunder-primary focus:ring-thunder-primary border-gray-300 rounded"
-                      />
-                      <label htmlFor="balancePositions" className="ml-2 block text-sm text-gray-700">
-                        Balance Positions
-                      </label>
-                    </div>
-                    <div className="col-span-1 sm:col-span-2 mt-2">
-                      <label htmlFor="difficulty" className="block text-sm font-medium text-gray-700 mb-1">
-                        Opponent Difficulty (1-5)
-                      </label>
-                      <input
-                        type="range"
-                        id="difficulty"
-                        min="1"
-                        max="5"
-                        value={autoAssignRules.opponentDifficulty}
-                        onChange={(e) => setAutoAssignRules({
-                          ...autoAssignRules,
-                          opponentDifficulty: parseInt(e.target.value)
-                        })}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>Easier (Play Everyone)</span>
-                        <span>Harder (Best Lineup)</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        
-        {/* Save button */}
-        {selectedPlayers.length > 0 && (
-          <div className="flex justify-end">
-            <button
-              onClick={handleSubmit}
-              className="px-6 py-3 bg-thunder-primary text-white rounded-lg hover:bg-thunder-primary/90 flex items-center"
-            >
-              <FaSave className="mr-2" />
-              Save Lineup
-            </button>
-          </div>
-        )}
+        <Link
+          href="/lineups/create"
+          className="w-full sm:w-auto bg-thunder-primary text-white flex items-center justify-center px-4 py-2 rounded-lg hover:bg-thunder-primary/90 transition-colors"
+        >
+          <FaPlus className="mr-2" />
+          Create Lineup
+        </Link>
       </div>
+      
+      {/* Loading state */}
+      {loading && (
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-thunder-primary mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading lineups...</p>
+        </div>
+      )}
+      
+      {/* Error message */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">
+          <span className="block">{error}</span>
+        </div>
+      )}
+      
+      {/* No lineups message */}
+      {!loading && lineups.length === 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 text-center">
+          <FaCalendarAlt className="mx-auto text-5xl text-gray-300 mb-4" />
+          <p className="text-gray-600">
+            No lineups found for this team. Create your first lineup to get started!
+          </p>
+        </div>
+      )}
+      
+      {/* Lineups list */}
+      {!loading && lineups.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {lineups.map((lineup) => (
+            <div key={lineup.gameId} className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="p-4">
+                <h2 className="text-lg font-semibold text-thunder-dark">vs {lineup.opponent}</h2>
+                <p className="text-gray-600">
+                  {new Date(lineup.date).toLocaleDateString()}
+                </p>
+                <p className="text-sm text-gray-500">{lineup.location}</p>
+              </div>
+              <div className="border-t border-gray-200 p-4">
+                <Link
+                  href={`/lineups/${lineup.gameId}`}
+                  className="w-full bg-thunder-secondary text-thunder-dark py-2 px-4 rounded-lg flex items-center justify-center hover:bg-thunder-secondary/90"
+                >
+                  <FaEye className="mr-2" />
+                  View Lineup
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
-}primary focus:ring-thunder-primary border-gray-300 rounded"
-                      />
-                      <label htmlFor="rotateOutfield" className="ml-2 block text-sm text-gray-700">
-                        Rotate Outfield
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="ensureInfieldTime"
-                        checked={autoAssignRules.ensureInfieldTime}
-                        onChange={() => setAutoAssignRules({
-                          ...autoAssignRules,
-                          ensureInfieldTime: !autoAssignRules.ensureInfieldTime
-                        })}
-                        className="h-4 w-4 text-thunder-primary focus:ring-thunder-primary border-gray-300 rounded"
-                      />
-                      <label htmlFor="ensureInfieldTime" className="ml-2 block text-sm text-gray-700">
-                        Ensure Infield Time
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="respectPreferences"
-                        checked={autoAssignRules.respectPreferences}
-                        onChange={() => setAutoAssignRules({
-                          ...autoAssignRules,
-                          respectPreferences: !autoAssignRules.respectPreferences
-                        })}
-                        className="h-4 w-4 text-thunder-primary focus:ring-thunder-primary border-gray-300 rounded"
-                      />
-                      <label htmlFor="respectPreferences" className="ml-2 block text-sm text-gray-700">
-                        Respect Position Preferences
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="balancePositions"
-                        checked={autoAssignRules.balancePositions}
-                        onChange={() => setAutoAssignRules({
-                          ...autoAssignRules,
-                          balancePositions: !autoAssignRules.balancePositions
-                        })}
-                        className="h-4 w-4 text-thunder-
+}

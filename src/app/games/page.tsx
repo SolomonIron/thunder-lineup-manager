@@ -403,39 +403,39 @@ export default function GamesPage() {
                       </div>
                       <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col gap-2">
                         {game.hasLineup ? (
-                          <Link
+                            <Link
                             href={`/lineups/${game.id}`}
                             className="w-full bg-thunder-secondary text-thunder-dark py-2 px-4 rounded-lg flex items-center justify-center hover:bg-thunder-secondary/90"
-                          >
+                            >
                             <FaClipboardList className="mr-2" />
                             View Lineup
-                          </Link>
+                            </Link>
                         ) : (
-                          <Link
+                            <Link
                             href={`/lineups/create?gameId=${game.id}`}
                             className="w-full bg-thunder-primary text-white py-2 px-4 rounded-lg flex items-center justify-center hover:bg-thunder-primary/90"
-                          >
+                            >
                             <FaClipboardList className="mr-2" />
                             Create Lineup
-                          </Link>
+                            </Link>
                         )}
                         <div className="flex justify-between gap-2">
-                          <button
+                            <button
                             onClick={() => openEditModal(game)}
                             className="flex-1 bg-gray-100 text-gray-800 py-2 px-4 rounded-lg flex items-center justify-center hover:bg-gray-200"
-                          >
+                            >
                             <FaEdit className="mr-2" />
                             Edit
-                          </button>
-                          <button
+                            </button>
+                            <button
                             onClick={() => deleteGame(game.id)}
                             className="flex-1 bg-red-500 text-white py-2 px-4 rounded-lg flex items-center justify-center hover:bg-red-600"
-                          >
+                            >
                             <FaTrash className="mr-2" />
                             Delete
-                          </button>
+                            </button>
                         </div>
-                      </div>
+                        </div>
                     </div>
                   </div>
                 );
@@ -513,21 +513,21 @@ export default function GamesPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">
                             {game.hasLineup ? (
-                              <Link
+                                <Link
                                 href={`/lineups/${game.id}`}
                                 className="text-thunder-secondary hover:text-thunder-secondary/80"
-                              >
+                                >
                                 <FaClipboardList className="inline-block text-xl" />
-                              </Link>
+                                </Link>
                             ) : (
-                              <Link
+                                <Link
                                 href={`/lineups/create?gameId=${game.id}`}
                                 className="text-thunder-primary hover:text-thunder-primary/80"
-                              >
+                                >
                                 <FaPlus className="inline-block text-xl" />
-                              </Link>
+                                </Link>
                             )}
-                          </td>
+                            </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                             <div className="flex items-center justify-center space-x-3">
                               <button

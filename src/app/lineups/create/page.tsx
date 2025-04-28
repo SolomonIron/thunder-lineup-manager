@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FaArrowUp, FaArrowDown, FaRandom, FaSave } from 'react-icons/fa';
 import { GiBaseballGlove } from 'react-icons/gi';
@@ -302,22 +303,20 @@ export default function CreateLineupPage() {
 
   // Function to automatically assign positions based on rules
   const autoAssignPositions = () => {
-    // This is where we'll implement the automated lineup logic
-    // For now, just a simple implementation
-    
+    // This is where we'll implement the automated lineup logic based on rules
     const newFieldingAssignments = [];
     
     for (let inning = 1; inning <= innings; inning++) {
       const inningAssignments = [];
       const availablePositions = [...getAvailablePositionsForInning(outfielderCount)];
       
-      // Sort players by skill level (higher first) if playing against a difficult opponent
+      // Sort players based on skill level and opponent difficulty
       const sortedPlayers = [...selectedPlayers].sort((a, b) => {
         // If high difficulty, prioritize skill
         if (autoAssignRules.opponentDifficulty >= 4) {
           return b.skillLevel - a.skillLevel;
         }
-        // If low difficulty, mix it up more
+        // If low difficulty, give less skilled players more opportunities
         else if (autoAssignRules.opponentDifficulty <= 2) {
           return a.skillLevel - b.skillLevel;
         }
@@ -411,7 +410,103 @@ export default function CreateLineupPage() {
       newFieldingAssignments.push(inningAssignments);
     }
     
+    // Apply the balance/rotation rules to ensure equal playing time
+    if (autoAssignRules.balancePositions) {
+      balancePositionAssignments(newFieldingAssignments);
+    }
+    
     setFieldingAssignments(newFieldingAssignments);
+  };
+  
+  // Function to balance positions and ensure equal playing time
+  const balancePositionAssignments = (assignments) => {
+    // Track position counts per player
+    const playerPositionCounts = {};
+    
+    // Initialize player position counts
+    selectedPlayers.forEach(player => {
+      playerPositionCounts[player.id] = {
+        infield: 0,
+        outfield: 0,
+        bench: 0,
+        positions: {}
+      };
+      
+      // Initialize all positions to 0
+      positions.forEach(position => {
+        playerPositionCounts[player.id].positions[position.id] = 0;
+      });
+    });
+    
+    // Count current assignments
+    assignments.forEach(inningAssignments => {
+      inningAssignments.forEach(assignment => {
+        const { playerId, position } = assignment;
+        
+        // Increment position count
+        playerPositionCounts[playerId].positions[position]++;
+        
+        // Track infield/outfield/bench counts
+        if (position === 'bench') {
+          playerPositionCounts[playerId].bench++;
+        } else if (position.includes('field')) {
+          playerPositionCounts[playerId].outfield++;
+        } else {
+          playerPositionCounts[playerId].infield++;
+        }
+      });
+    });
+    
+    // Make adjustments if needed for extreme imbalances
+    // This is a basic implementation that can be expanded
+    
+    // For example, ensure no player sits on bench more than once
+    // if the number of players allows for it
+    if (selectedPlayers.length <= innings + 1) {
+      // Find players who are on bench more than once
+      const benchPlayers = selectedPlayers.filter(
+        player => playerPositionCounts[player.id].bench > 1
+      );
+      
+      // Find players who are never on bench
+      const neverBenchPlayers = selectedPlayers.filter(
+        player => playerPositionCounts[player.id].bench === 0
+      );
+      
+      // Swap positions in later innings
+      benchPlayers.forEach(benchPlayer => {
+        neverBenchPlayers.forEach(neverBenchPlayer => {
+          // Look for an inning where the bench player is on bench
+          // and the never-bench player is in the field
+          for (let i = 0; i < assignments.length; i++) {
+            const benchAssignment = assignments[i].find(
+              a => a.playerId === benchPlayer.id && a.position === 'bench'
+            );
+            
+            const fieldAssignment = assignments[i].find(
+              a => a.playerId === neverBenchPlayer.id && a.position !== 'bench'
+            );
+            
+            if (benchAssignment && fieldAssignment) {
+              // Swap positions
+              const tempPosition = benchAssignment.position;
+              benchAssignment.position = fieldAssignment.position;
+              fieldAssignment.position = tempPosition;
+              
+              // Update counts
+              playerPositionCounts[benchPlayer.id].bench--;
+              playerPositionCounts[neverBenchPlayer.id].bench++;
+              
+              // Only make one swap per player
+              break;
+            }
+          }
+        });
+      });
+    }
+    
+    // Return the modified assignments
+    return assignments;
   };
 
   // Function to handle form submission
@@ -704,7 +799,7 @@ export default function CreateLineupPage() {
                 {fieldingAssignments.length > 0 && fieldingAssignments[currentInning - 1] && (
                   <div className="space-y-2">
                     {selectedPlayers.map((player, playerIndex) => {
-                      const assignment = fieldingAssignments[currentInning - 1].find(
+                      const assignment = fieldingAssignments[currentInning - 1]?.find(
                         (a) => a.playerId === player.id
                       );
                       const position = assignment ? assignment.position : 'bench';
@@ -751,3 +846,98 @@ export default function CreateLineupPage() {
                         onChange={() => setAutoAssignRules({
                           ...autoAssignRules,
                           rotateOutfield: !autoAssignRules.rotateOutfield
+                        })}
+                        className="h-4 w-4 text-thunder-primary focus:ring-thunder-primary border-gray-300 rounded"
+                      />
+                      <label htmlFor="rotateOutfield" className="ml-2 block text-sm text-gray-700">
+                        Rotate Outfield
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="ensureInfieldTime"
+                        checked={autoAssignRules.ensureInfieldTime}
+                        onChange={() => setAutoAssignRules({
+                          ...autoAssignRules,
+                          ensureInfieldTime: !autoAssignRules.ensureInfieldTime
+                        })}
+                        className="h-4 w-4 text-thunder-primary focus:ring-thunder-primary border-gray-300 rounded"
+                      />
+                      <label htmlFor="ensureInfieldTime" className="ml-2 block text-sm text-gray-700">
+                        Ensure Infield Time
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="respectPreferences"
+                        checked={autoAssignRules.respectPreferences}
+                        onChange={() => setAutoAssignRules({
+                          ...autoAssignRules,
+                          respectPreferences: !autoAssignRules.respectPreferences
+                        })}
+                        className="h-4 w-4 text-thunder-primary focus:ring-thunder-primary border-gray-300 rounded"
+                      />
+                      <label htmlFor="respectPreferences" className="ml-2 block text-sm text-gray-700">
+                        Respect Position Preferences
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="balancePositions"
+                        checked={autoAssignRules.balancePositions}
+                        onChange={() => setAutoAssignRules({
+                          ...autoAssignRules,
+                          balancePositions: !autoAssignRules.balancePositions
+                        })}
+                        className="h-4 w-4 text-thunder-primary focus:ring-thunder-primary border-gray-300 rounded"
+                      />
+                      <label htmlFor="balancePositions" className="ml-2 block text-sm text-gray-700">
+                        Balance Positions
+                      </label>
+                    </div>
+                    <div className="col-span-1 sm:col-span-2 mt-2">
+                      <label htmlFor="difficulty" className="block text-sm font-medium text-gray-700 mb-1">
+                        Opponent Difficulty (1-5)
+                      </label>
+                      <input
+                        type="range"
+                        id="difficulty"
+                        min="1"
+                        max="5"
+                        value={autoAssignRules.opponentDifficulty}
+                        onChange={(e) => setAutoAssignRules({
+                          ...autoAssignRules,
+                          opponentDifficulty: parseInt(e.target.value)
+                        })}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>Easier (Play Everyone)</span>
+                        <span>Harder (Best Lineup)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Save button */}
+        {selectedPlayers.length > 0 && (
+          <div className="flex justify-end">
+            <button
+              onClick={handleSubmit}
+              className="px-6 py-3 bg-thunder-primary text-white rounded-lg hover:bg-thunder-primary/90 flex items-center"
+            >
+              <FaSave className="mr-2" />
+              Save Lineup
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );

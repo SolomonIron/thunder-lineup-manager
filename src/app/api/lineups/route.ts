@@ -2,6 +2,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
+// GET /api/lineups - Get all lineups for a team
+export async function GET(request: NextRequest) {
+  try {
+    const teamId = request.nextUrl.searchParams.get('teamId');
+    
+    if (!teamId) {
+      return NextResponse.json({ error: 'Team ID is required' }, { status: 400 });
+    }
+    
+    // Find all games for this team that have lineups
+    const gamesWithLineups = await prisma.game.findMany({
+      where: {
+        teamId,
+      },
+      include: {
+        _count: {
+          select: {
+            battingLineups: true,
+          },
+        },
+      },
+    });
+    
+    // Filter to games that have lineups
+    const lineups = gamesWithLineups
+      .filter(game => game._count.battingLineups > 0)
+      .map(game => ({
+        gameId: game.id,
+        opponent: game.opponentName,
+        date: game.gameDate,
+        location: game.location,
+      }));
+    
+    return NextResponse.json(lineups);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Failed to fetch lineups' }, { status: 500 });
+  }
+}
+
 // POST /api/lineups - Create or update lineup for a game
 export async function POST(request: NextRequest) {
   try {
