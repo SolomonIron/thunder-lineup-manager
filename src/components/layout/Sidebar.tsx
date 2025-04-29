@@ -1,95 +1,321 @@
 // src/components/layout/Sidebar.tsx
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FaBaseballBall, FaUserFriends, FaCalendarAlt, FaChartLine } from 'react-icons/fa';
-import { MdOutlineSettings, MdSportsCricket } from 'react-icons/md';
+import {
+  FaHome,
+  FaBaseballBall,
+  FaUserFriends,
+  FaCalendarAlt,
+  FaClipboardList,
+  FaChartLine,
+  FaChevronRight,
+  FaCog,
+  FaQuestionCircle,
+  FaChevronLeft,
+  FaChevronDown
+} from 'react-icons/fa';
 import { GiBaseballGlove } from 'react-icons/gi';
+import axios from 'axios';
 
 const Sidebar = () => {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(true);
+  const [teams, setTeams] = useState<any[]>([]);
+  const [activeTeam, setActiveTeam] = useState<any>(null);
+  const [expandedSections, setExpandedSections] = useState({
+    teams: true,
+    games: false,
+    lineups: false
+  });
 
-  const navItems = [
-    { name: 'Dashboard', href: '/', icon: <FaBaseballBall className="text-xl" /> },
-    { name: 'Teams', href: '/teams', icon: <FaUserFriends className="text-xl" /> },
-    { name: 'Games', href: '/games', icon: <FaCalendarAlt className="text-xl" /> },
-    { name: 'Lineups', href: '/lineups', icon: <MdSportsCricket className="text-xl" /> },
-    { name: 'Positions', href: '/positions', icon: <GiBaseballGlove className="text-xl" /> },
-    { name: 'Analytics', href: '/analytics', icon: <FaChartLine className="text-xl" /> },
-    { name: 'Settings', href: '/settings', icon: <MdOutlineSettings className="text-xl" /> },
-  ];
+  useEffect(() => {
+    fetchTeams();
+  }, []);
+
+  const fetchTeams = async () => {
+    try {
+      const response = await axios.get('/api/teams');
+      setTeams(response.data);
+      
+      if (response.data.length > 0) {
+        setActiveTeam(response.data[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching teams:', error);
+    }
+  };
+
+  const toggleSection = (section: string) => {
+    setExpandedSections({
+      ...expandedSections,
+      [section]: !expandedSections[section as keyof typeof expandedSections]
+    });
+  };
+
+  const isActive = (path: string) => {
+    return pathname === path || pathname?.startsWith(path + '/');
+  };
 
   return (
     <div
       className={`${
         expanded ? 'w-64' : 'w-20'
-      } bg-thunder-primary text-white transition-width duration-300 ease-in-out h-screen shadow-lg fixed`}
+      } bg-blue-700 text-white fixed left-0 top-0 h-full z-20 transition-all duration-300 ease-in-out`}
     >
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-center h-20 border-b border-thunder-primary/20">
-          <div className="flex items-center p-4">
-            {/* Replace with actual logo */}
+        <div className="flex items-center justify-between h-20 border-b border-thunder-primary/20 px-4">
+          <div className="flex items-center">
             <div className="flex items-center justify-center bg-white rounded-full h-10 w-10 overflow-hidden">
-              <MdSportsCricket className="text-thunder-primary text-2xl" />
+              <FaBaseballBall className="text-thunder-primary text-2xl" />
             </div>
             {expanded && (
-              <span className="ml-3 font-bold text-lg">Thunder Lineup</span>
+              <span className="ml-3 font-bold text-lg overflow-hidden whitespace-nowrap text-white">Thunder Lineup</span>
             )}
           </div>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-thunder-primary/80 focus:outline-none text-white"
+          >
+            {expanded ? <FaChevronLeft /> : <FaChevronRight />}
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <nav className="px-2 pt-4">
-            <ul className="space-y-2">
-              {navItems.map((item) => (
-                <li key={item.name}>
-                  <Link
-                    href={item.href}
-                    className={`flex items-center px-4 py-3 rounded-lg hover:bg-thunder-primary/80 transition-colors ${
-                      pathname === item.href
-                        ? 'bg-thunder-secondary text-thunder-dark font-medium'
-                        : ''
-                    }`}
-                  >
-                    <span className="flex items-center justify-center">
-                      {item.icon}
-                    </span>
-                    {expanded && <span className="ml-3">{item.name}</span>}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+        <div className="flex-1 overflow-y-auto py-4 px-3">
+          <nav className="space-y-1">
+            {/* Main Nav Items */}
+            <NavItem 
+              href="/" 
+              icon={<FaHome />} 
+              text="Dashboard" 
+              expanded={expanded} 
+              active={pathname === '/'}
+            />
+
+{/* Teams Section */}
+<div className="pt-2">
+              <button
+                onClick={() => toggleSection('teams')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                  isActive('/teams') ? 'bg-yellow-400 text-gray-800' : 'text-white hover:bg-blue-600'
+                }`}
+              >
+                <FaUserFriends className={`${expanded ? 'mr-3' : 'mx-auto'} text-xl`} />
+                {expanded && (
+                  <>
+                    <span className="flex-1">Teams</span>
+                    <FaChevronDown 
+                      className={`transform transition-transform ${
+                        expandedSections.teams ? 'rotate-180' : ''
+                      }`} 
+                    />
+                  </>
+                )}
+              </button>
+              
+              {expanded && expandedSections.teams && (
+                <div className="pl-10 mt-1 space-y-1">
+                  <NavItem
+                    href="/teams"
+                    text="All Teams"
+                    expanded={expanded}
+                    active={pathname === '/teams'}
+                    nested
+                  />
+                  {teams.map(team => (
+                    <NavItem
+                      key={team.id}
+                      href={`/teams/${team.id}/roster`}
+                      text={team.name}
+                      expanded={expanded}
+                      active={pathname?.includes(`/teams/${team.id}`)}
+                      nested
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Games Section */}
+            <div className="pt-2">
+              <button
+                onClick={() => toggleSection('games')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                  isActive('/games') ? 'bg-yellow-400 text-gray-800' : 'text-white hover:bg-blue-600'
+                }`}
+              >
+                <FaCalendarAlt className={`${expanded ? 'mr-3' : 'mx-auto'} text-xl`} />
+                {expanded && (
+                  <>
+                    <span className="flex-1">Games</span>
+                    <FaChevronDown 
+                      className={`transform transition-transform ${
+                        expandedSections.games ? 'rotate-180' : ''
+                      }`} 
+                    />
+                  </>
+                )}
+              </button>
+              
+              {expanded && expandedSections.games && (
+                <div className="pl-10 mt-1 space-y-1">
+                  <NavItem
+                    href="/games"
+                    text="All Games"
+                    expanded={expanded}
+                    active={pathname === '/games'}
+                    nested
+                  />
+                  <NavItem
+                    href="/games?filter=upcoming"
+                    text="Upcoming Games"
+                    expanded={expanded}
+                    active={pathname === '/games' && pathname.includes('filter=upcoming')}
+                    nested
+                  />
+                  <NavItem
+                    href="/games?filter=past"
+                    text="Past Games"
+                    expanded={expanded}
+                    active={pathname === '/games' && pathname.includes('filter=past')}
+                    nested
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Lineups Section */}
+            <div className="pt-2">
+              <button
+                onClick={() => toggleSection('lineups')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                  isActive('/lineups') ? 'bg-yellow-400 text-gray-800' : 'text-white hover:bg-blue-600'
+                }`}
+              >
+                <FaClipboardList className={`${expanded ? 'mr-3' : 'mx-auto'} text-xl`} />
+                {expanded && (
+                  <>
+                    <span className="flex-1">Lineups</span>
+                    <FaChevronDown 
+                      className={`transform transition-transform ${
+                        expandedSections.lineups ? 'rotate-180' : ''
+                      }`} 
+                    />
+                  </>
+                )}
+              </button>
+              
+              {expanded && expandedSections.lineups && (
+                <div className="pl-10 mt-1 space-y-1">
+                  <NavItem
+                    href="/lineups"
+                    text="View Lineups"
+                    expanded={expanded}
+                    active={pathname === '/lineups'}
+                    nested
+                  />
+                  <NavItem
+                    href="/lineups/create"
+                    text="Create Lineup"
+                    expanded={expanded}
+                    active={pathname === '/lineups/create'}
+                    nested
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Other Nav Items */}
+            <NavItem 
+              href="/positions" 
+              icon={<GiBaseballGlove />} 
+              text="Positions" 
+              expanded={expanded} 
+              active={isActive('/positions')}
+            />
+            
+            <NavItem 
+              href="/analytics" 
+              icon={<FaChartLine />} 
+              text="Analytics" 
+              expanded={expanded} 
+              active={isActive('/analytics')}
+            />
+            
+            <div className="pt-4 mt-4 border-t border-thunder-primary/20">
+              <NavItem 
+                href="/settings" 
+                icon={<FaCog />} 
+                text="Settings" 
+                expanded={expanded} 
+                active={isActive('/settings')}
+              />
+              
+              <NavItem 
+                href="/help" 
+                icon={<FaQuestionCircle />} 
+                text="Help" 
+                expanded={expanded} 
+                active={isActive('/help')}
+              />
+            </div>
           </nav>
         </div>
 
-        <div className="p-4 border-t border-thunder-primary/20">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center justify-center w-full p-2 rounded-lg hover:bg-thunder-primary/80 transition-colors"
-          >
-            <svg
-              className={`h-6 w-6 transition-transform duration-300 ${
-                expanded ? 'rotate-180' : ''
-              }`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-              />
-            </svg>
-          </button>
-        </div>
+        {/* Active Team Display */}
+        {expanded && activeTeam && (
+          <div className="p-4 border-t border-thunder-primary/20">
+            <div className="flex items-center">
+              <div className="bg-white rounded-full h-8 w-8 flex items-center justify-center">
+                <FaBaseballBall className="text-thunder-primary" />
+              </div>
+              <div className="ml-3">
+                <div className="text-sm font-medium text-white">{activeTeam.name}</div>
+                <div className="text-xs text-white opacity-75">{activeTeam.season} Season</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
+
+// NavItem Component
+const NavItem = ({ 
+    href, 
+    icon, 
+    text, 
+    expanded, 
+    active,
+    nested = false
+  }: { 
+    href: string, 
+    icon?: React.ReactNode, 
+    text: string, 
+    expanded: boolean, 
+    active: boolean,
+    nested?: boolean
+  }) => {
+    return (
+      <Link
+        href={href}
+        className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+          active 
+            ? 'bg-yellow-400 text-gray-800' 
+            : 'text-white hover:bg-blue-600'
+        } ${nested ? 'text-xs' : ''}`}
+      >
+        {icon && (
+          <span className={`${expanded ? 'mr-3' : 'mx-auto'} ${nested ? 'text-sm' : 'text-xl'}`}>
+            {icon}
+          </span>
+        )}
+        {expanded && <span className="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">{text}</span>}
+      </Link>
+    );
+  };
 
 export default Sidebar;
