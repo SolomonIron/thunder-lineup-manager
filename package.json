@@ -11,7 +11,8 @@
     "db:generate": "prisma generate",
     "db:seed": "ts-node --project tsconfig.test.json prisma/seed.ts",
     "db:studio": "prisma studio",
-    "test:db": "ts-node --project tsconfig.test.json scripts/test-db.ts"
+    "test:db": "ts-node scripts/test-db.ts"
+
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
