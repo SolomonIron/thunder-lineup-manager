@@ -55,7 +55,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Player ID is required' }, { status: 400 });
     }
     
-    // Update the player basic info
+    // Update player basic info
     const updatedPlayer = await prisma.player.update({
       where: {
         id: playerId,
@@ -64,22 +64,21 @@ export async function PUT(
         name,
         jerseyNumber,
         skillLevel,
-        active,
+        active: active ?? true,
       },
     });
     
-    // Update position preferences if provided
-    if (positionPreferences) {
-      // Delete existing preferences
-      await prisma.playerPositionPreference.deleteMany({
-        where: {
-          playerId,
-        },
-      });
-      
-      // Add new preferences
+    // Delete existing position preferences
+    await prisma.playerPositionPreference.deleteMany({
+      where: {
+        playerId,
+      },
+    });
+    
+    // Create new position preferences
+    if (positionPreferences && positionPreferences.length > 0) {
       await Promise.all(
-        positionPreferences.map((pref: any) =>
+        positionPreferences.map((pref: any) => 
           prisma.playerPositionPreference.create({
             data: {
               playerId,
@@ -92,8 +91,8 @@ export async function PUT(
       );
     }
     
-    // Return the updated player with position preferences
-    const playerWithPreferences = await prisma.player.findUnique({
+    // Fetch updated player with preferences
+    const updatedPlayerWithPreferences = await prisma.player.findUnique({
       where: {
         id: playerId,
       },
@@ -102,42 +101,9 @@ export async function PUT(
       },
     });
     
-    return NextResponse.json(playerWithPreferences);
+    return NextResponse.json(updatedPlayerWithPreferences);
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Failed to update player' }, { status: 500 });
-  }
-}
-
-// DELETE /api/players/[id] - Delete a player
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const playerId = params.id;
-    
-    if (!playerId) {
-      return NextResponse.json({ error: 'Player ID is required' }, { status: 400 });
-    }
-    
-    // Delete position preferences first (handling the cascade manually)
-    await prisma.playerPositionPreference.deleteMany({
-      where: {
-        playerId,
-      },
-    });
-    
-    // Delete the player
-    await prisma.player.delete({
-      where: {
-        id: playerId,
-      },
-    });
-    
-    return NextResponse.json({ message: 'Player deleted successfully' });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Failed to delete player' }, { status: 500 });
   }
 }

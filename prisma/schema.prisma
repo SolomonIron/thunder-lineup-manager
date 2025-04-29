@@ -67,6 +67,9 @@ model Game {
   outfielderCount   Int      @default(4)
   playerCount       Int
   notes             String?
+  result            String?
+  isHome            Boolean  @default(true)  // Add this to indicate home/away game
+  isTournament      Boolean  @default(false) // Add this to indicate tournament game
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
