@@ -37,6 +37,7 @@ model Player {
 
   team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   positionPreferences PlayerPositionPreference[]
+  startingPositions PlayerStartingPosition[]
   battingLineups LineupBatting[]
   fieldingLineups LineupFielding[]
 
@@ -47,7 +48,7 @@ model PlayerPositionPreference {
   id             String   @id @default(cuid())
   playerId       String
   position       String
-  preferenceLevel Int      @default(3) // 1-5 scale
+  preferenceLevel Int      @default(3) // 1-5 scale (5=primary, 4=secondary, 3=tertiary, 2=quaternary, 1=avoid, 0=n/a)
   allowed        Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -55,6 +56,20 @@ model PlayerPositionPreference {
   player         Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@map("player_position_preferences")
+}
+
+model PlayerStartingPosition {
+  id             String   @id @default(cuid())
+  playerId       String
+  opponentLevel  String   // "strong", "average", "weak"
+  position       String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  player         Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("player_starting_positions")
+  @@unique([playerId, opponentLevel])
 }
 
 model Game {
